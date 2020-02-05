@@ -48,7 +48,7 @@ export const getSwipeDirection = (touchObject, verticalSwiping = false) => {
   xDist = touchObject.startX - touchObject.curX;
   yDist = touchObject.startY - touchObject.curY;
   r = Math.atan2(yDist, xDist);
-  swipeAngle = Math.round(r * 180 / Math.PI);
+  swipeAngle = Math.round((r * 180) / Math.PI);
   if (swipeAngle < 0) {
     swipeAngle = 360 - Math.abs(swipeAngle);
   }
@@ -114,17 +114,22 @@ export const initializedState = spec => {
   } else {
     slideWidth = listWidth;
   }
-  let slideHeight =
-    ReactDOM.findDOMNode(spec.listRef) &&
-    getHeight(
-      ReactDOM.findDOMNode(spec.listRef).querySelector('[data-index="0"]')
-    );
-  let listHeight = slideHeight * spec.slidesToShow;
+
+  let slideHeight = [];
+  new Array(slideCount).fill("").map((v, i) => {
+    slideHeight[i] =
+      ReactDOM.findDOMNode(spec.listRef) &&
+      getHeight(
+        ReactDOM.findDOMNode(spec.listRef).querySelector(`[data-index="${i}"]`)
+      );
+  });
+
   let currentSlide =
     spec.currentSlide === undefined ? spec.initialSlide : spec.currentSlide;
   if (spec.rtl && spec.currentSlide === undefined) {
     currentSlide = slideCount - 1 - spec.initialSlide;
   }
+  let listHeight = slideHeight[currentSlide]; // TODO only working when slidesToShow === 1
   let lazyLoadedList = spec.lazyLoadedList || [];
   let slidesToLoad = getOnDemandLazySlides(
     { currentSlide, lazyLoadedList },
@@ -195,7 +200,7 @@ export const slideHandler = spec => {
       finalSlide = animationSlide + slideCount;
       if (!infinite) finalSlide = 0;
       else if (slideCount % slidesToScroll !== 0)
-        finalSlide = slideCount - slideCount % slidesToScroll;
+        finalSlide = slideCount - (slideCount % slidesToScroll);
     } else if (!canGoNext(spec) && animationSlide > currentSlide) {
       animationSlide = finalSlide = currentSlide;
     } else if (centerMode && animationSlide >= slideCount) {
@@ -265,7 +270,8 @@ export const changeSlide = (spec, options) => {
     slideOffset = indexOffset === 0 ? slidesToScroll : indexOffset;
     targetSlide = currentSlide + slideOffset;
     if (lazyLoad && !infinite) {
-      targetSlide = (currentSlide + slidesToScroll) % slideCount + indexOffset;
+      targetSlide =
+        ((currentSlide + slidesToScroll) % slideCount) + indexOffset;
     }
   } else if (options.message === "dots") {
     // Click on dots
@@ -569,7 +575,9 @@ export const getTrackCSS = spec => {
   if (!spec.vertical) {
     trackWidth = getTotalSlides(spec) * spec.slideWidth;
   } else {
-    trackHeight = trackChildren * spec.slideHeight;
+    trackHeight =
+      trackChildren *
+      spec.slideHeight[spec.currentSlide ? spec.currentSlide - 1 : 0];
   }
   let style = {
     opacity: 1,
@@ -669,7 +677,7 @@ export const getTrackLeft = spec => {
     slideWidth,
     listWidth,
     variableWidth,
-    slideHeight,
+    slideHeight: slideHeightArray,
     fade,
     vertical
   } = spec;
@@ -677,7 +685,6 @@ export const getTrackLeft = spec => {
   var slideOffset = 0;
   var targetLeft;
   var targetSlide;
-  var verticalOffset = 0;
 
   if (fade || spec.slideCount === 1) {
     return 0;
@@ -704,19 +711,21 @@ export const getTrackLeft = spec => {
       slideCount % slidesToScroll !== 0 &&
       slideIndex + slidesToScroll > slideCount
     ) {
-      slidesToOffset = slidesToShow - slideCount % slidesToScroll;
+      slidesToOffset = slidesToShow - (slideCount % slidesToScroll);
     }
     if (centerMode) {
       slidesToOffset = parseInt(slidesToShow / 2);
     }
   }
   slideOffset = slidesToOffset * slideWidth;
-  verticalOffset = slidesToOffset * slideHeight;
 
   if (!vertical) {
     targetLeft = slideIndex * slideWidth * -1 + slideOffset;
   } else {
-    targetLeft = slideIndex * slideHeight * -1 + verticalOffset;
+    targetLeft = 0;
+    new Array(slideIndex)
+      .fill("")
+      .map((v, i) => (targetLeft -= slideHeightArray[i]));
   }
 
   if (variableWidth === true) {
